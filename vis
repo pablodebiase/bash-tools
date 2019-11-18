@@ -91,7 +91,7 @@ display()
 
 pattern=$1
 locald=.
-alist=($(find $locald -type f | grep -i $pattern))
+alist=($(find $locald -type f -iname '*'$pattern'*'))
 t=${#alist[@]}
 n=$t
 s=0
