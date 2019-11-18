@@ -1,0 +1,160 @@
+#!/bin/bash
+# Load keys
+KEY_ESC=$'\e'
+KEY_F1=$'\e'[[A
+KEY_F2=$'\e'[[B
+KEY_F3=$'\e'[[C
+KEY_F4=$'\e'[[D
+KEY_F5=$'\e'[[E
+KEY_F6=$'\e'[17~
+KEY_F7=$'\e'[18~
+KEY_F8=$'\e'[19~
+KEY_F9=$'\e'[20~
+KEY_F10=$'\e'[21~
+KEY_F11=$'\e'[22~
+KEY_F12=$'\e'[23~
+KEY_HOME=$'\e'[1~
+KEY_HOME2=$'\e'[H
+KEY_INSERT=$'\e'[2~
+KEY_DELETE=$'\e'[3~
+KEY_END=$'\e'[4~
+KEY_END2=$'\e'[F
+KEY_PAGEUP=$'\e'[5~
+KEY_PAGEDOWN=$'\e'[6~
+KEY_UP=$'\e'[A
+KEY_DOWN=$'\e'[B
+KEY_RIGHT=$'\e'[C
+KEY_LEFT=$'\e'[D
+KEY_NUMPADUNKNOWN=$'\e'[G
+
+# terminal limits
+lines=$(($(tput lines)-2))
+cols=$(tput cols)
+
+# Separator
+IFS=$'\n'
+
+arrowup()
+{
+   local ii=0
+   local times=$1
+   for ((ii=0; ii<$times; ii++)); do
+     echo -en "\e[A"
+   done
+}
+
+arrowdown()
+{
+   local ii=0
+   local times=$1
+   for ((ii=0; ii<$times; ii++)); do
+     echo -en "\e[B"
+   done
+}
+
+spaces()
+{
+  printf "%-$1s" " "
+}
+
+cleanline()
+{
+  echo -ne "\r"
+  spaces $1
+  echo -ne "\r"
+}
+
+boldline()
+{
+   echo -ne "\r\e[1m$1\e[0m\r"
+}
+
+redline()
+{
+   echo -ne "\r\e[31m$1\e[0m\r"
+}
+
+unboldline()
+{
+   echo -ne "\r\e[0m$1\r"
+}
+
+display()
+{
+  local arr=("$@")
+  local i=0
+  for i in "${!arr[@]}"; do
+    cleanline $cols
+    echo ${arr[$i]:0:$cols}
+  done
+}
+
+pattern=$1
+locald=.
+alist=($(find $locald -type f | grep -i $pattern))
+t=${#alist[@]}
+n=$t
+s=0
+if [ $t -gt $lines ]; then
+  n=$lines
+fi
+[ $t -eq 0 ] && exit 0
+
+# Print list
+display "${alist[@]:$s:$n}"
+arrowup $n
+i=0
+key=a
+while [[ "$key" != "" ]]; do
+  boldline "${alist[$i]:0:$cols}"
+  read -s -n 3 key
+  m=0
+  case "$key" in
+    $KEY_UP) m=2;;
+    $KEY_DOWN) m=1;;
+    $KEY_ESC$KEY_ESC$KEY_ESC) break;;
+  esac
+  prev=$((i-1))
+  next=$((i+1))
+  #move down
+  if [ $m -eq 1 ]; then
+    if [ $next -lt $((n+s)) ]; then
+      unboldline "${alist[$i]:0:$cols}"
+      arrowdown 1
+      i=$next
+  #scroll down
+    elif [ $next -eq $((n+s)) ]; then
+      if [ $next -lt $t ]; then
+        dist2top=$((i-s))
+        dist2bottom=$((n+s-i))
+        i=$next
+        s=$((s+1))
+        arrowup $dist2top
+        display "${alist[@]:$s:$n}"
+        arrowup $dist2bottom
+      fi
+    fi
+  #move up
+  elif [ $m -eq 2 ]; then
+    if [ $i -gt $s ]; then
+      unboldline "${alist[$i]:0:$cols}"
+      arrowup 1
+      i=$prev
+  # scroll up
+    elif [ $i -eq $s ]; then
+      if [ $prev -ge 0 ]; then
+        dist2top=$((i-s))
+        dist2bottom=$((n+s-i))
+        i=$prev
+        s=$((s-1))
+        arrowup $dist2top
+        display "${alist[@]:$s:$n}"
+        arrowup $dist2bottom
+      fi
+    fi
+  fi
+done
+arrowdown $((n+s-i))
+if [[ "$key" != $KEY_ESC$KEY_ESC$KEY_ESC ]]; then
+  vi ${alist[$i]}
+fi
